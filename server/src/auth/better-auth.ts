@@ -22,6 +22,7 @@ import {
   resolveWorkspaceHandoffLocalKey,
   resolveWorkspaceHandoffLocalWorkspaceId,
 } from "./workspace-login-handoff.js";
+import { buildOidcAccountLinking, buildOidcPlugins, resolveOidcSettings } from "./oidc.js";
 
 export type BetterAuthSessionUser = {
   id: string;
@@ -257,6 +258,10 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins:
     publicUrl,
   });
 
+  // Minicon patch (upstream #3028): optional OIDC sign-in, inert without PAPERCLIP_OIDC_* env.
+  const oidc = resolveOidcSettings(process.env, { signUpDisabled: config.authDisableSignUp });
+  const oidcPlugins = buildOidcPlugins(oidc);
+
   const authConfig = {
     baseURL: baseUrl,
     secret,
@@ -270,8 +275,9 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins:
         verification: authVerifications,
       },
     }),
+    ...buildOidcAccountLinking(oidc),
     emailAndPassword: {
-      enabled: true,
+      enabled: !oidc?.disablePassword,
       requireEmailVerification: false,
       disableSignUp: config.authDisableSignUp,
     },
@@ -284,9 +290,11 @@ export function createBetterAuthInstance(db: Db, config: Config, trustedOrigins:
     // Registered only for a managed workspace instance: the plugin is what makes
     // `Open workspace` password-independent, and a control-plane instance that
     // was never handed a workspace key must not expose the exchange at all.
+    ...(oidcPlugins.length && !resolveWorkspaceHandoffIdentity(config) ? { plugins: oidcPlugins } : {}),
     ...(resolveWorkspaceHandoffIdentity(config)
       ? {
           plugins: [
+            ...oidcPlugins,
             workspaceLoginHandoffPlugin({
               db,
               // Re-resolved per exchange so a hot restart cannot keep validating
