@@ -30,3 +30,5 @@ echo "$NEU" > .minicon/base-tag && git commit -am "chore: auf $NEU"
 ```
 
 Doku im Betrieb: BookStack, Buch *Paperclip – Agenten-Orchestrierung*.
+
+Standard-Branch des Forks: `minicon/main` (dort laufen die Zeitpläne).
