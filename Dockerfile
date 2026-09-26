@@ -164,6 +164,12 @@ RUN echo "cli-tools-epoch: ${CLI_TOOLS_CACHE_EPOCH}" \
   && mkdir -p /paperclip \
   && chown node:node /paperclip
 
+# Minicon: Bubblewrap für die Workspace-Sandbox lokaler Agenten (filesystemScope "workspace").
+# Eigene Schicht, damit der teure CLI-Layer darüber im Cache bleibt.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bubblewrap \
+  && rm -rf /var/lib/apt/lists/*
+
 COPY scripts/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

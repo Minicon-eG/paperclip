@@ -74,7 +74,7 @@ jobs:
           set -o pipefail
           ( pnpm install --frozen-lockfile \
             && pnpm --filter @paperclipai/server exec tsc --noEmit \
-            && pnpm --filter @paperclipai/server exec vitest run oidc better-auth health ) 2>&1 | tail -200 > tests.log \
+            && pnpm --filter @paperclipai/server exec vitest run oidc better-auth health && pnpm --filter @paperclipai/adapter-utils exec vitest run server-utils-env ) 2>&1 | tail -200 > tests.log \
             && echo "ok=yes" >> "$GITHUB_OUTPUT" || echo "ok=no" >> "$GITHUB_OUTPUT"
       - name: Übernehmen und bauen
         if: steps.tests.outputs.ok == 'yes'
