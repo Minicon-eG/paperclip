@@ -72,9 +72,11 @@ jobs:
         run: |
           corepack enable
           set -o pipefail
+          # Tests aus der Repo-Wurzel mit --project starten; "pnpm --filter … exec vitest" findet die
+          # Workspace-Projektdefinition nicht. Typfehler fängt der Image-Build (pnpm build) ab.
           ( pnpm install --frozen-lockfile \
-            && pnpm --filter @paperclipai/server exec tsc --noEmit \
-            && pnpm --filter @paperclipai/server exec vitest run oidc better-auth health && pnpm --filter @paperclipai/adapter-utils exec vitest run server-utils-env ) 2>&1 | tail -200 > tests.log \
+            && pnpm exec vitest run --project @paperclipai/server server/src/__tests__/oidc.test.ts \
+            && pnpm exec vitest run --project @paperclipai/adapter-utils packages/adapter-utils/src/server-utils-env.test.ts ) 2>&1 | tail -200 > tests.log \
             && echo "ok=yes" >> "$GITHUB_OUTPUT" || echo "ok=no" >> "$GITHUB_OUTPUT"
       - name: Übernehmen und bauen
         if: steps.tests.outputs.ok == 'yes'
