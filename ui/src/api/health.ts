@@ -38,6 +38,13 @@ export type HealthStatus = {
   bootstrapInviteActive?: boolean;
   /** The unclaimed Cloud app is ready; this response did not probe SQL. */
   warmStandby?: boolean;
+  /** Minicon patch: present when OIDC sign-in is configured. */
+  authSso?: {
+    enabled: true;
+    providerId: string;
+    displayName: string;
+    passwordLoginDisabled: boolean;
+  };
   features?: {
     companyDeletionEnabled?: boolean;
   };
