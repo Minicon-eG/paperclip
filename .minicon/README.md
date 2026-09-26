@@ -32,3 +32,13 @@ echo "$NEU" > .minicon/base-tag && git commit -am "chore: auf $NEU"
 Doku im Betrieb: BookStack, Buch *Paperclip – Agenten-Orchestrierung*.
 
 Standard-Branch des Forks: `minicon/main` (dort laufen die Zeitpläne).
+
+## Agenten-Sandbox (Minicon-Patch)
+
+- `Dockerfile`: installiert `bubblewrap`, damit `claude_local`/`codex_local` mit `filesystemScope: "workspace"`
+  laufen können. Der Container braucht dafür das seccomp-Profil `seccomp-bwrap.json` (Docker-Standard plus
+  `unshare`, `clone`, `clone3`, `mount`, `umount2`, `pivot_root`, `setns`) sowie
+  `apparmor=unconfined` und `systempaths=unconfined`.
+- `packages/adapter-utils/src/server-utils.ts` (`sanitizeInheritedPaperclipEnv`): `BETTER_AUTH_SECRET`,
+  `DATABASE_URL` und alle in `PAPERCLIP_AGENT_ENV_DENYLIST` genannten Variablen werden nicht an
+  Agentenprozesse vererbt. Upstream entfernt nur `PAPERCLIP_*`.

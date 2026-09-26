@@ -12,4 +12,15 @@ describe("sanitizeInheritedPaperclipEnv", () => {
       PATH: "/usr/bin",
     });
   });
+
+  it("drops server-only credentials and the configured denylist", () => {
+    expect(sanitizeInheritedPaperclipEnv({
+      BETTER_AUTH_SECRET: "s",
+      DATABASE_URL: "postgres://paperclip:pw@db/paperclip",
+      OPENCLAW_TOKEN: "t",
+      OTHER_SECRET: "o",
+      PAPERCLIP_AGENT_ENV_DENYLIST: "OPENCLAW_TOKEN, OTHER_SECRET",
+      PATH: "/usr/bin",
+    })).toEqual({ PATH: "/usr/bin" });
+  });
 });
