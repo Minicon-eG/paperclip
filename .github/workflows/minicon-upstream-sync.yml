@@ -1,0 +1,99 @@
+name: minicon-upstream-sync
+# Setzt den Minicon-Patch auf das neueste stabile Upstream-Release.
+# Erfolg: minicon/main wird aktualisiert und der Build gestartet.
+# Konflikt oder rote Tests: Issue mit Label "upstream-sync" für den Pflege-Agenten.
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Upstream-Tag erzwingen (leer = neuestes Release)"
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: minicon-upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: minicon/main
+          fetch-depth: 0
+      - name: Neues Release?
+        id: check
+        run: |
+          git remote add upstream https://github.com/paperclipai/paperclip.git
+          git fetch --quiet upstream --tags
+          base=$(cat .minicon/base-tag)
+          new="${{ inputs.tag }}"
+          [ -n "$new" ] || new=$(gh release view --repo paperclipai/paperclip --json tagName -q .tagName)
+          echo "base=$base" >> "$GITHUB_OUTPUT"; echo "new=$new" >> "$GITHUB_OUTPUT"
+          if [ "$new" = "$base" ]; then echo "Aktuell ($base)."; echo "todo=no" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if gh issue list --label upstream-sync --state open --search "$new in:title" --json number -q '.[0].number' | grep -q .; then
+            echo "Für $new ist bereits ein Issue offen."; echo "todo=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "todo=yes" >> "$GITHUB_OUTPUT"
+      - name: Rebase
+        id: rebase
+        if: steps.check.outputs.todo == 'yes'
+        run: |
+          git config user.name "minicon-upstream-sync"
+          git config user.email "minicon-upstream-sync@users.noreply.github.com"
+          base=${{ steps.check.outputs.base }}; new=${{ steps.check.outputs.new }}
+          if git rebase --onto "$new" "$base" minicon/main > rebase.log 2>&1; then
+            echo "$new" > .minicon/base-tag
+            git commit -qam "chore(minicon): Patch auf $new gesetzt"
+            echo "ok=yes" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only --diff-filter=U > konflikte.txt || true
+            git rebase --abort || true
+            echo "ok=no" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.rebase.outputs.ok == 'yes'
+        with:
+          node-version: 24
+      - name: Tests
+        id: tests
+        if: steps.rebase.outputs.ok == 'yes'
+        run: |
+          corepack enable
+          set -o pipefail
+          ( pnpm install --frozen-lockfile \
+            && pnpm --filter @paperclipai/server exec tsc --noEmit \
+            && pnpm --filter @paperclipai/server exec vitest run oidc better-auth health ) 2>&1 | tail -200 > tests.log \
+            && echo "ok=yes" >> "$GITHUB_OUTPUT" || echo "ok=no" >> "$GITHUB_OUTPUT"
+      - name: Übernehmen und bauen
+        if: steps.tests.outputs.ok == 'yes'
+        run: |
+          git push --force-with-lease origin HEAD:minicon/main
+          gh workflow run minicon-build.yml --ref minicon/main
+      - name: Issue für den Pflege-Agenten
+        if: steps.check.outputs.todo == 'yes' && (steps.rebase.outputs.ok == 'no' || steps.tests.outputs.ok == 'no')
+        run: |
+          new=${{ steps.check.outputs.new }}
+          gh label create upstream-sync --color C2410C --description "Upstream-Update braucht Handarbeit" 2>/dev/null || true
+          {
+            echo "Das Upstream-Release **$new** ließ sich nicht automatisch übernehmen (Basis: \`${{ steps.check.outputs.base }}\`)."
+            echo
+            if [ "${{ steps.rebase.outputs.ok }}" = "no" ]; then
+              echo "### Rebase-Konflikt"; echo; echo '```'; cat konflikte.txt; echo '```'
+            else
+              echo "### Tests fehlgeschlagen"; echo; echo '```'; tail -80 tests.log; echo '```'
+            fi
+            echo
+            echo "Vorgehen: siehe \`.minicon/README.md\` → *Pflege*. Nach dem Lösen \`minicon/main\` pushen und \`minicon-build\` starten."
+          } > body.md
+          gh issue create --title "Upstream $new übernehmen" --label upstream-sync --body-file body.md
