@@ -18,6 +18,10 @@
  *   PAPERCLIP_OIDC_DISABLE_PASSWORD  "true" turns off email/password sign-in once SSO works.
  *                                    Default off.
  *
+ * Better Auth 1.7 exposes the provider as a social provider: the sign-in page calls
+ * POST /api/auth/sign-in/social {provider: <providerId>}, and the IdP redirect URI is
+ * <public url>/api/auth/callback/<providerId>.
+ *
  * Accounts created or linked through SSO still need a company membership (invite) to see
  * anything — OIDC only answers "who is this", never "what may they do".
  */
