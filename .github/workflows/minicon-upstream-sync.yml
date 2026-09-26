@@ -97,4 +97,17 @@ jobs:
             echo
             echo "Vorgehen: siehe \`.minicon/README.md\` → *Pflege*. Nach dem Lösen \`minicon/main\` pushen und \`minicon-build\` starten."
           } > body.md
-          gh issue create --title "Upstream $new übernehmen" --label upstream-sync --body-file body.md
+          url=$(gh issue create --title "Upstream $new übernehmen" --label upstream-sync --body-file body.md)
+          echo "issue_url=$url" >> "$GITHUB_ENV"
+      - name: Pflege-Agent in Paperclip beauftragen
+        if: env.issue_url != ''
+        env:
+          HOOK_URL: ${{ secrets.PAPERCLIP_SYNC_WEBHOOK_URL }}
+          HOOK_SECRET: ${{ secrets.PAPERCLIP_SYNC_WEBHOOK_SECRET }}
+        run: |
+          [ -n "$HOOK_URL" ] || { echo "Kein Webhook hinterlegt – nur Issue."; exit 0; }
+          jq -n --arg issueUrl "$issue_url" --arg tag "${{ steps.check.outputs.new }}" \
+                --arg base "${{ steps.check.outputs.base }}" --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+                '{issueUrl:$issueUrl, upstreamTag:$tag, baseTag:$base, workflowRun:$run}' > hook.json
+          curl -fsS -X POST "$HOOK_URL" -H "Authorization: Bearer $HOOK_SECRET" \
+               -H "Content-Type: application/json" --data-binary @hook.json -o /dev/null -w "Paperclip: %{http_code}\n"
