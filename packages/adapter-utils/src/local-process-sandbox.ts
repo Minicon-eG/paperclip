@@ -66,6 +66,8 @@ const SYSTEM_READ_PATHS = [
   "/etc/gitconfig",
 ] as const;
 
+const SANDBOX_SYMLINK_ROOTS = new Set(["/bin", "/sbin", "/lib", "/lib64"]);
+
 const PROXY_ENV_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] as const;
 const SANDBOX_PROXY_PORT = 31_337;
 const UNIX_SOCKET_PATH_MAX_BYTES = 107;
@@ -397,6 +399,9 @@ export async function buildLocalProcessSandboxSpawnTarget(input: {
     const mount = async (source: string, access: LocalProcessSandboxAccess) => {
       const normalized = normalizeAbsolutePath(source, "Sandbox path");
       if (mounted.has(normalized) || !(await pathExists(normalized))) return;
+      // Minicon patch: /bin, /sbin, /lib and /lib64 already exist as --symlink usr/* entries.
+      // Binding the host path onto them fails ("Can't mount on symlink destination /bin").
+      if (SANDBOX_SYMLINK_ROOTS.has(normalized)) return;
       addParentDirectories(args, created, normalized);
       args.push(access === "rw" ? "--bind" : "--ro-bind", normalized, normalized);
       mounted.add(normalized);

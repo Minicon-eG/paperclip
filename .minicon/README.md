@@ -42,3 +42,9 @@ Standard-Branch des Forks: `minicon/main` (dort laufen die Zeitpläne).
 - `packages/adapter-utils/src/server-utils.ts` (`sanitizeInheritedPaperclipEnv`): `BETTER_AUTH_SECRET`,
   `DATABASE_URL` und alle in `PAPERCLIP_AGENT_ENV_DENYLIST` genannten Variablen werden nicht an
   Agentenprozesse vererbt. Upstream entfernt nur `PAPERCLIP_*`.
+- `packages/adapter-utils/src/local-process-sandbox.ts`: `/bin`, `/sbin`, `/lib`, `/lib64` nicht zusätzlich
+  einbinden – sie existieren in der Sandbox schon als Verweise auf `usr/*`. Upstream scheitert sonst auf
+  Debian/usrmerge mit „Can't mount on symlink destination /bin“ (auch die eigenen bwrap-Tests,
+  `PAPERCLIP_TEST_BWRAP=/usr/bin/bwrap`).
+- `packages/adapter-utils/src/server-utils.ts` (`runChildProcess`): Fehlerbehandlung für stdin. Endet ein
+  Agentenprozess vor dem Lesen seiner Eingabe, brachte das unbehandelte `EPIPE` den ganzen Server zum Absturz.

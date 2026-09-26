@@ -4801,6 +4801,9 @@ export async function runChildProcess(
 
         const stdin = child.stdin;
         if (opts.stdin != null && stdin) {
+          // Minicon patch: a child that exits before reading its input (e.g. a sandbox that fails
+          // to start) raises EPIPE on stdin. Unhandled, that error crashes the whole server.
+          stdin.on("error", (err: Error) => onLogError(err, runId, "failed to write child stdin"));
           void spawnPersistPromise.finally(() => {
             if (child.killed || stdin.destroyed) return;
             stdin.write(opts.stdin as string);
