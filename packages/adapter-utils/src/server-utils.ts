@@ -3515,6 +3515,16 @@ export function sanitizeInheritedPaperclipEnv(
 ): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...baseEnv };
   delete env.PAPERCLIPAI_CMD;
+  // Minicon patch: server-only credentials must not reach agent processes.
+  // PAPERCLIP_AGENT_ENV_DENYLIST (comma separated) names further host variables to drop.
+  for (const key of [
+    "BETTER_AUTH_SECRET",
+    "DATABASE_URL",
+    ...(baseEnv.PAPERCLIP_AGENT_ENV_DENYLIST ?? "").split(","),
+  ]) {
+    const name = key.trim();
+    if (name) delete env[name];
+  }
   for (const key of Object.keys(env)) {
     if (AGENT_IDENTITY_ENV_KEYS.includes(key.toUpperCase())) {
       delete env[key];
