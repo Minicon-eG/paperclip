@@ -177,6 +177,14 @@ export const authApi = {
     await authPost("/sign-up/email", input);
   },
 
+  /** Minicon patch: start the OIDC redirect flow and hand the browser to the IdP. */
+  signInSso: async (input: { providerId: string; callbackURL: string }): Promise<string> => {
+    const payload = await authPost("/sign-in/oauth2", { ...input, errorCallbackURL: "/auth?sso_error=1" });
+    const url = payload && typeof payload === "object" ? (payload as { url?: unknown }).url : null;
+    if (typeof url !== "string" || !url) throw new Error("Single sign-on did not return a redirect");
+    return url;
+  },
+
   getProfile: async (): Promise<CurrentUserProfile> => {
     const res = await fetch("/api/auth/profile", {
       credentials: "include",

@@ -32,6 +32,13 @@ export type HealthStatus = {
   authReady?: boolean;
   bootstrapStatus?: "ready" | "bootstrap_pending";
   bootstrapInviteActive?: boolean;
+  /** Minicon patch: present when OIDC sign-in is configured. */
+  authSso?: {
+    enabled: true;
+    providerId: string;
+    displayName: string;
+    passwordLoginDisabled: boolean;
+  };
   features?: {
     companyDeletionEnabled?: boolean;
   };

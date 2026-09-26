@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "@/lib/router";
 import { authApi } from "../api/auth";
+import { healthApi } from "../api/health";
 import { queryKeys } from "../lib/queryKeys";
 import { getRememberedInvitePath } from "../lib/invite-memory";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,31 @@ export function AuthPage() {
     queryFn: () => authApi.getSession(),
     retry: false,
   });
+
+  // Minicon patch: offer OIDC sign-in when the server has it configured.
+  const { data: health } = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => healthApi.get(),
+    retry: false,
+  });
+  const sso = health?.authSso;
+  const passwordLoginDisabled = Boolean(sso?.passwordLoginDisabled);
+  const [ssoPending, setSsoPending] = useState(false);
+  const startSso = async () => {
+    if (!sso || ssoPending) return;
+    setError(null);
+    setSsoPending(true);
+    try {
+      const callbackURL = new URL(nextPath, window.location.origin).toString();
+      window.location.assign(await authApi.signInSso({ providerId: sso.providerId, callbackURL }));
+    } catch (err) {
+      setSsoPending(false);
+      setError(err instanceof Error ? err.message : "Single sign-on failed");
+    }
+  };
+  useEffect(() => {
+    if (searchParams.get("sso_error")) setError("Single sign-on failed or was cancelled.");
+  }, [searchParams]);
 
   useEffect(() => {
     if (session) {
@@ -101,6 +127,21 @@ export function AuthPage() {
               : "Create an account for this instance. Email confirmation is not required in v1."}
           </p>
 
+          {sso && mode === "sign_in" && (
+            <div className="mt-6 space-y-3">
+              <Button type="button" className="w-full" onClick={startSso} disabled={ssoPending}>
+                {ssoPending ? "Redirecting…" : `Sign in with ${sso.displayName}`}
+              </Button>
+              {!passwordLoginDisabled && (
+                <p className="text-center text-xs text-muted-foreground">or use your email and password</p>
+              )}
+              {passwordLoginDisabled && error && (
+                <p id={errorId} role="alert" className="text-xs text-destructive">{error}</p>
+              )}
+            </div>
+          )}
+
+          {!(passwordLoginDisabled && mode === "sign_in") && (
           <form
             className="mt-6 space-y-4"
             method="post"
@@ -184,7 +225,9 @@ export function AuthPage() {
                   : "Create Account"}
             </Button>
           </form>
+          )}
 
+          {!passwordLoginDisabled && (
           <div className="mt-5 text-sm text-muted-foreground">
             {mode === "sign_in" ? "Need an account?" : "Already have an account?"}{" "}
             <button
@@ -198,6 +241,7 @@ export function AuthPage() {
               {mode === "sign_in" ? "Create one" : "Sign in"}
             </button>
           </div>
+          )}
         </div>
       </div>
 

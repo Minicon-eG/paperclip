@@ -41,6 +41,7 @@ import {
   removeHotRestartIntent,
   writeHotRestartIntent,
 } from "../services/hot-restart.js";
+import { oidcPublicInfo, resolveOidcSettings } from "../auth/oidc.js";
 
 function shouldExposeFullHealthDetails(
   actorType: "none" | "board" | "agent" | null | undefined,
@@ -385,6 +386,7 @@ export function healthRoutes(
         })
       : undefined;
 
+    const authSso = oidcPublicInfo(resolveOidcSettings());
     if (!exposeFullDetails) {
       const redactedDatabaseBackup = databaseBackup ? redactedDatabaseBackupHealth(databaseBackup) : undefined;
       const redactedWarnings = redactedDatabaseBackup?.warnings.length ? redactedDatabaseBackup.warnings : undefined;
@@ -396,6 +398,8 @@ export function healthRoutes(
         commit,
         bootstrapStatus,
         bootstrapInviteActive,
+        // Minicon patch: the sign-in page needs to know whether to offer SSO.
+        ...(authSso ? { authSso } : {}),
         ...(redactedDatabaseBackup ? { databaseBackup: redactedDatabaseBackup } : {}),
         ...(redactedWarnings ? { warnings: redactedWarnings } : {}),
         ...(devServer ? { devServer } : {}),
@@ -420,6 +424,7 @@ export function healthRoutes(
       authReady: opts.authReady,
       bootstrapStatus,
       bootstrapInviteActive,
+      ...(authSso ? { authSso } : {}),
       features: {
         companyDeletionEnabled: opts.companyDeletionEnabled,
       },
