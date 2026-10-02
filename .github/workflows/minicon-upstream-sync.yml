@@ -76,15 +76,17 @@ jobs:
           # Workspace-Projektdefinition nicht. Typfehler fängt der Image-Build (pnpm build) ab.
           ( pnpm install --frozen-lockfile \
             && pnpm exec vitest run --project @paperclipai/server server/src/__tests__/oidc.test.ts \
-            && pnpm exec vitest run --project @paperclipai/adapter-utils packages/adapter-utils/src/server-utils-env.test.ts ) 2>&1 | tail -200 > tests.log \
+            && pnpm exec vitest run --project @paperclipai/adapter-utils packages/adapter-utils/src/server-utils-env.test.ts \
+              packages/adapter-utils/src/local-process-sandbox.test.ts ) 2>&1 | tail -200 > tests.log \
             && echo "ok=yes" >> "$GITHUB_OUTPUT" || echo "ok=no" >> "$GITHUB_OUTPUT"
       - name: Übernehmen und bauen
+        id: publish
         if: steps.tests.outputs.ok == 'yes'
         run: |
           git push --force-with-lease origin HEAD:minicon/main
           gh workflow run minicon-build.yml --ref minicon/main
       - name: Issue für den Pflege-Agenten
-        if: steps.check.outputs.todo == 'yes' && (steps.rebase.outputs.ok == 'no' || steps.tests.outputs.ok == 'no')
+        if: always() && steps.check.outputs.todo == 'yes' && (steps.rebase.outputs.ok == 'no' || steps.tests.outputs.ok == 'no' || steps.publish.outcome == 'failure')
         run: |
           new=${{ steps.check.outputs.new }}
           gh label create upstream-sync --color C2410C --description "Upstream-Update braucht Handarbeit" 2>/dev/null || true
@@ -93,6 +95,10 @@ jobs:
             echo
             if [ "${{ steps.rebase.outputs.ok }}" = "no" ]; then
               echo "### Rebase-Konflikt"; echo; echo '```'; cat konflikte.txt; echo '```'
+            elif [ "${{ steps.publish.outcome }}" = "failure" ]; then
+              echo "### Push oder Build-Start fehlgeschlagen"; echo
+              echo "Rebase und Tests waren grün. Prüfen, ob \`minicon/main\` auf $new steht, dann \`minicon-build\` starten."
+              echo "Lauf: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
             else
               echo "### Tests fehlgeschlagen"; echo; echo '```'; tail -80 tests.log; echo '```'
             fi
@@ -102,7 +108,7 @@ jobs:
           url=$(gh issue create --title "Upstream $new übernehmen" --label upstream-sync --body-file body.md)
           echo "issue_url=$url" >> "$GITHUB_ENV"
       - name: Pflege-Agent in Paperclip beauftragen
-        if: env.issue_url != ''
+        if: always() && env.issue_url != ''
         env:
           HOOK_URL: ${{ secrets.PAPERCLIP_SYNC_WEBHOOK_URL }}
           HOOK_SECRET: ${{ secrets.PAPERCLIP_SYNC_WEBHOOK_SECRET }}
