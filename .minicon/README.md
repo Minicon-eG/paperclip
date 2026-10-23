@@ -48,3 +48,9 @@ Standard-Branch des Forks: `minicon/main` (dort laufen die Zeitpläne).
   `PAPERCLIP_TEST_BWRAP=/usr/bin/bwrap`).
 - `packages/adapter-utils/src/server-utils.ts` (`runChildProcess`): Fehlerbehandlung für stdin. Endet ein
   Agentenprozess vor dem Lesen seiner Eingabe, brachte das unbehandelte `EPIPE` den ganzen Server zum Absturz.
+- `pnpm-lock.yaml` (nur auf `v2026.1012.0`): Upstream-Lockfile ergänzt um `@modelcontextprotocol/sdk` und
+  `light-my-request` aus `server/package.json`. Sonst bricht `pnpm install --frozen-lockfile` im Image-Build ab.
+  Upstream hat das auf `master` bereits nachgezogen. Beim nächsten Rebase bei Konflikt das Upstream-Lockfile
+  nehmen und diesen Commit fallen lassen. Lokal nur aus sauberem Zustand prüfen
+  (`CI=true NODE_ENV=development pnpm install --frozen-lockfile`). Ein vorhandenes `node_modules` täuscht sonst
+  „grün“ vor.
