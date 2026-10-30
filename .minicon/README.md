@@ -48,3 +48,8 @@ Standard-Branch des Forks: `minicon/main` (dort laufen die Zeitpläne).
   `PAPERCLIP_TEST_BWRAP=/usr/bin/bwrap`).
 - `packages/adapter-utils/src/server-utils.ts` (`runChildProcess`): Fehlerbehandlung für stdin. Endet ein
   Agentenprozess vor dem Lesen seiner Eingabe, brachte das unbehandelte `EPIPE` den ganzen Server zum Absturz.
+- `server/package.json`, `ui/package.json`, `pnpm-lock.yaml`: `dompurify` ^3.4.17 (GHSA-cg2g-xh64-v4q7) und
+  Storybook 10.6.2 (GHSA-f2ph-cmg5-wxc8). Fällt weg, sobald Upstream diese Versionen selbst hat. Bei
+  Lockfile-Konflikt das Upstream-Lockfile nehmen und mit `pnpm install` neu auflösen. Lokal nur aus sauberem
+  Zustand prüfen (`CI=true NODE_ENV=development pnpm install --frozen-lockfile`). Ein vorhandenes `node_modules`
+  täuscht sonst „grün“ vor.
